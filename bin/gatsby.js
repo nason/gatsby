@@ -30,33 +30,49 @@ var loadGatsby = function (path) {
   require(path)
 }
 
-var loadGlobalGatsby = function () {
-  var commandsToIgnore = ['new', '--help']
-  if (commandsToIgnore.indexOf(process.argv[2]) === -1) {
-    console.log(
-      "A local install of Gatsby was not found.\n" +
-      "Generally you should save Gatsby as a site dependency e.g. npm install --save gatsby\n" +
-      "Continuing with global install.\n\n"
-    )
+function checkFolder () {
+  const requiredDirs = [
+    'pages',
+  ].map(dir => sysPath.join(cwd, dir))
+  const requiredFiles = [
+    'html.js',
+    'pages/_template.js',
+  ].map(file => sysPath.join(cwd, file))
+
+  const missingDirs = requiredDirs.filter(dir => !fs.existsSync(dir))
+  const missingFiles = requiredFiles.filter(file => !fs.existsSync(file))
+
+  if (missingDirs.length) {
+    console.error(`Error: Missing required folder(s): ${missingDirs.join(', ')}`)
   }
-  fs.realpath(__dirname, function (err, real) {
-    if (err) throw err
-    loadGatsby(sysPath.join(real, '..', cliFile))
-  })
+  if (missingFiles.length) {
+    console.error(`Error: Missing required file(s): ${missingFiles.join(', ')}`)
+  }
+  if (missingDirs.length || missingFiles.length) {
+    process.exit(1)
+  }
+}
+
+var commandsToValidcate = ['build', 'develop', 'serve-build']
+if (process.argv[2] && commandsToValidcate.indexOf(process.argv[2]) !== -1) {
+  // Verify the project is a valid gatsby project
+  checkFolder()
 }
 
 fs.access(localPath, function (error) {
   if (error) {
-    loadGlobalGatsby()
+    console.error(
+      "A local install of Gatsby was not found.\n" +
+      "You should save Gatsby as a site dependency e.g. npm install --save gatsby"
+    )
   } else {
     try {
       loadGatsby(localPath)
     } catch(error) {
-      console.log(
-        'Gatsby: Local install exists but failed to load it. ' +
-        'Continuing with global install:', error
+      console.error(
+        'Gatsby: Local install exists but failed to load it.',
+        error
       )
-      loadGlobalGatsby()
     }
   }
 })
