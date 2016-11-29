@@ -8,6 +8,7 @@ global.appStartTime = Date.now()
 
 var sysPath = require('path')
 var fs = require('fs')
+var checkRequiredFiles = require('react-dev-utils/checkRequiredFiles')
 var version = process.version
 var versionDigits = version.split('.')
   .map(function (d) { return d.match(/\d+/)[0] })
@@ -30,42 +31,42 @@ var loadGatsby = function (path) {
   require(path)
 }
 
-function checkFolder () {
-  const requiredDirs = [
-    'pages',
-  ].map(dir => sysPath.join(cwd, dir))
-  const requiredFiles = [
-    'html.js',
-    'pages/_template.js',
-  ].map(file => sysPath.join(cwd, file))
+/*
+  These commands can:
+  - Use a global install as a fallback if no local install is present
+  - Bypass the required file check
+ */
+const commandsToIgnore = [undefined, 'new', '--help', '-h', '--version', '-V']
+const isGlobal = commandsToIgnore.includes(process.argv[2])
 
-  const missingDirs = requiredDirs.filter(dir => !fs.existsSync(dir))
-  const missingFiles = requiredFiles.filter(file => !fs.existsSync(file))
-
-  if (missingDirs.length) {
-    console.error(`Error: Missing required folder(s): ${missingDirs.join(', ')}`)
-  }
-  if (missingFiles.length) {
-    console.error(`Error: Missing required file(s): ${missingFiles.join(', ')}`)
-  }
-  if (missingDirs.length || missingFiles.length) {
-    process.exit(1)
-  }
-}
-
-var commandsToValidcate = ['build', 'develop', 'serve-build']
-if (process.argv[2] && commandsToValidcate.indexOf(process.argv[2]) !== -1) {
-  // Verify the project is a valid gatsby project
-  checkFolder()
-}
+const requiredFiles = [
+  'html.js',
+  'pages/_template.js'
+].map(function(file) {
+  // Relative to cwd
+  return sysPath.join(cwd, file)
+})
 
 fs.access(localPath, function (error) {
   if (error) {
-    console.error(
-      "A local install of Gatsby was not found.\n" +
-      "You should save Gatsby as a site dependency e.g. npm install --save gatsby"
-    )
+    if (!isGlobal) {
+      console.error(
+        "A local install of Gatsby was not found.\n" +
+        "You should save Gatsby as a site dependency e.g. npm install --save gatsby\n"
+      )
+      process.exit()
+    } else {
+      console.warn('Proceeding with global Gatsby package.\n');
+      fs.realpath(__dirname, function (err, real) {
+        if (err) throw err
+        loadGatsby(sysPath.join(real, '..', cliFile))
+      })
+    }
   } else {
+    if (!isGlobal && !checkRequiredFiles(requiredFiles)) {
+      process.exit()
+    }
+
     try {
       loadGatsby(localPath)
     } catch(error) {
